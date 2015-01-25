@@ -1,370 +1,160 @@
 <!DOCTYPE html>
 <html>
-
-  <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="Practical machine learning project : Project">
-
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-
-    <title>Practical machine learning project</title>
-  </head>
-
-  <body>
-
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/hyacinthuslove">View on GitHub</a>
-
-          <h1 id="project_title">Practical machine learning project</h1>
-          <h2 id="project_tagline">Project</h2>
-
-        </header>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-        <p></p>
-
-<p></p>
-
-<p>
-
-</p>
-
-<p></p>
-
-<p></p>Project Writeup for Practical Machine Learning
-
-
-
-<p>
-
-</p>
-
-
-
-code{white-space: pre;}
-
-<p></p>
-
-
-
-
-  pre:not([class]) {
-    background-color: white;
-  }
-
-
-
-
-<p></p>
-
-<p></p>
-
-
-.main-container {
-  max-width: 940px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-
-<div>
-
-
-<div id="header">
-<h1>
-<a id="project-writeup-for-practical-machine-learning" class="anchor" href="#project-writeup-for-practical-machine-learning" aria-hidden="true"><span class="octicon octicon-link"></span></a>Project Writeup for Practical Machine Learning</h1>
-<h4>
-<a id="peggy-ong" class="anchor" href="#peggy-ong" aria-hidden="true"><span class="octicon octicon-link"></span></a><em>Peggy Ong</em>
-</h4>
-<h4>
-<a id="thursday-december-18-2014" class="anchor" href="#thursday-december-18-2014" aria-hidden="true"><span class="octicon octicon-link"></span></a><em>Thursday, December 18, 2014</em>
-</h4>
-</div>
-
-<p>Loading the libraries.</p>
-
-<pre><code>library(caret)
-library(nnet)</code></pre>
-
-<p>Read Train and Score datasets. Get accelerometers data on the belt, forearm, arm, and dumbell of 6 participants.</p>
-
-<pre><code>train_data &lt;- read.csv('pml-training.csv',header = TRUE)
-test_data &lt;- read.csv('pml-testing.csv',header = TRUE)
-
-train_data &lt;- train_data[,c(grep(x = names(train_data),pattern = "^accel_"),160)]
-sum(complete.cases(train_data)); dim(train_data)</code></pre>
-
-<pre><code>## [1] 19622</code></pre>
-
-<pre><code>## [1] 19622    13</code></pre>
-
-<pre><code>test_data &lt;- test_data[,c(grep(x = names(test_data),pattern = "^accel_"),160)]
-sum(complete.cases(test_data)); dim(test_data)</code></pre>
-
-<pre><code>## [1] 20</code></pre>
-
-<pre><code>## [1] 20 13</code></pre>
-
-<p>Create data partitions to validate the models created. 70% of train data assign to train partition and the remaining 30% to test partition.</p>
-
-<pre><code>set.seed(888)
-trainIndex &lt;- createDataPartition(train_data$classe, p = .7,list = FALSE,
-                                  times = 1)
-
-train_partition &lt;- train_data[trainIndex, ]
-test_partition &lt;- train_data[-trainIndex, ]
-
-sapply(train_partition, sd)</code></pre>
-
-<pre><code>##     accel_belt_x     accel_belt_y     accel_belt_z      accel_arm_x 
-##        29.688405        28.517716       100.482263       181.424239 
-##      accel_arm_y      accel_arm_z accel_dumbbell_x accel_dumbbell_y 
-##       110.157299       134.965849        67.231544        80.863675 
-## accel_dumbbell_z  accel_forearm_x  accel_forearm_y  accel_forearm_z 
-##       109.490321       180.663044       200.650188       138.920273 
-##           classe 
-##         1.475469</code></pre>
-
-<pre><code>sapply(test_partition, sd)</code></pre>
-
-<pre><code>##     accel_belt_x     accel_belt_y     accel_belt_z      accel_arm_x 
-##        29.545228        28.717657       100.370578       183.498825 
-##      accel_arm_y      accel_arm_z accel_dumbbell_x accel_dumbbell_y 
-##       109.191103       133.930567        67.520220        80.487211 
-## accel_dumbbell_z  accel_forearm_x  accel_forearm_y  accel_forearm_z 
-##       109.426748       180.446766       198.927549       137.142844 
-##           classe 
-##         1.475679</code></pre>
-
-<pre><code>sapply(test_data, sd)</code></pre>
-
-<pre><code>##     accel_belt_x     accel_belt_y     accel_belt_z      accel_arm_x 
-##         19.80829         27.99300         90.72190        151.65906 
-##      accel_arm_y      accel_arm_z accel_dumbbell_x accel_dumbbell_y 
-##         92.77868        109.88332         93.40371         74.05011 
-## accel_dumbbell_z  accel_forearm_x  accel_forearm_y  accel_forearm_z 
-##        130.42925        156.97388        190.50987        149.20283 
-##       problem_id 
-##          5.91608</code></pre>
-
-<p>Set the Formula</p>
-
-<pre><code>theTarget &lt;- "classe"
-theFormula &lt;- as.formula(paste("as.factor(",theTarget, ") ~ . "))
-trainTarget = train_partition[,which(names(train_partition)==theTarget)] 
-testTarget  = test_partition[,which(names(test_partition)==theTarget)]</code></pre>
-
-<p>As outcome is categorical with &gt; 2 levels i.e. A, B, C, D or E, I use multinomial logit model.</p>
-
-<pre><code>multi_Model &lt;- multinom(theFormula, data=train_partition)</code></pre>
-
-<pre><code>## # weights:  70 (52 variable)
-## initial  value 22108.848603 
-## iter  10 value 19215.313985
-## iter  20 value 18764.977146
-## iter  30 value 18452.435906
-## iter  40 value 18392.091913
-## iter  50 value 18204.858197
-## iter  60 value 17448.812748
-## final  value 17448.811914 
-## converged</code></pre>
-
-<pre><code>train_pred &lt;- predict(multi_Model, train_partition)
-test_pred &lt;- predict(multi_Model, test_partition)</code></pre>
-
-<p>Display the confusion matrix results for train partition (multinomial).</p>
-
-<pre><code>confusionMatrix(train_pred, trainTarget)</code></pre>
-
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 2712  681 1190  344  387
-##          B  239 1174  287  242  475
-##          C  271  372  706  202  181
-##          D  589  273  181 1234  325
-##          E   95  158   32  230 1157
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.5083          
-##                  95% CI : (0.4999, 0.5167)
-##     No Information Rate : 0.2843          
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
-##                                           
-##                   Kappa : 0.3701          
-##  Mcnemar's Test P-Value : &lt; 2.2e-16       
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.6943  0.44169  0.29466  0.54796  0.45822
-## Specificity            0.7353  0.88781  0.90953  0.88089  0.95407
-## Pos Pred Value         0.5104  0.48573  0.40762  0.47425  0.69199
-## Neg Pred Value         0.8582  0.86890  0.85923  0.90858  0.88661
-## Prevalence             0.2843  0.19349  0.17442  0.16394  0.18381
-## Detection Rate         0.1974  0.08546  0.05139  0.08983  0.08423
-## Detection Prevalence   0.3868  0.17595  0.12608  0.18942  0.12172
-## Balanced Accuracy      0.7148  0.66475  0.60209  0.71442  0.70614</code></pre>
-
-<p>Display the confusion matrix results for test partition (multinomial).</p>
-
-<pre><code>confusionMatrix(test_pred, testTarget)</code></pre>
-
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 1136  288  489  165  150
-##          B  104  516  126  108  223
-##          C  140  150  324   77   92
-##          D  256  120   76  517  125
-##          E   38   65   11   97  492
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.5072          
-##                  95% CI : (0.4944, 0.5201)
-##     No Information Rate : 0.2845          
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
-##                                           
-##                   Kappa : 0.3693          
-##  Mcnemar's Test P-Value : &lt; 2.2e-16       
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.6786  0.45303  0.31579  0.53631   0.4547
-## Specificity            0.7407  0.88180  0.90554  0.88275   0.9561
-## Pos Pred Value         0.5099  0.47911  0.41379  0.47258   0.6999
-## Neg Pred Value         0.8529  0.87042  0.86241  0.90670   0.8861
-## Prevalence             0.2845  0.19354  0.17434  0.16381   0.1839
-## Detection Rate         0.1930  0.08768  0.05506  0.08785   0.0836
-## Detection Prevalence   0.3786  0.18301  0.13305  0.18590   0.1195
-## Balanced Accuracy      0.7096  0.66741  0.61066  0.70953   0.7054</code></pre>
-
-<p>Both Train and Test partitions under multinomial achieved only 50% accuracy. That means in-sample error is very high at about 50%. Using the test partition, we see that out-of-sample error<br> (model was not trained with this partition) is also high at (1-0.5072)*100 = 49.28%. 20 Test Cases are predicted with multinomial model achieved only 13/20 correct in the submission.</p>
-
-<pre><code>predict(multi_Model, test_data)</code></pre>
-
-<pre><code>##  [1] B A A A A E D E A A C A A A C B A B B B
-## Levels: A B C D E</code></pre>
-
-<p>Now, I try Generalized Boosted Regression Modeling (GBM) to see if better results can be achieved.</p>
-
-<pre><code>gbm_Model &lt;- train(theFormula, method="gbm", data=train_partition)</code></pre>
-
-<pre><code>train_pred &lt;- predict(gbm_Model, train_partition)
-test_pred &lt;- predict(gbm_Model, test_partition)</code></pre>
-
-<p>Display the confusion matrix results for train partition (GBM).</p>
-
-<pre><code>confusionMatrix(train_pred, trainTarget)</code></pre>
-
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 3512  286  175  168   50
-##          B   60 1982  131   44  122
-##          C  137  228 2029  144   90
-##          D  187   94   49 1862   83
-##          E   10   68   12   34 2180
-## 
-## Overall Statistics
-##                                          
-##                Accuracy : 0.8419         
-##                  95% CI : (0.8357, 0.848)
-##     No Information Rate : 0.2843         
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
-##                                          
-##                   Kappa : 0.7996         
-##  Mcnemar's Test P-Value : &lt; 2.2e-16      
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.8991   0.7457   0.8468   0.8268   0.8634
-## Specificity            0.9309   0.9678   0.9472   0.9640   0.9889
-## Pos Pred Value         0.8380   0.8474   0.7721   0.8185   0.9462
-## Neg Pred Value         0.9587   0.9407   0.9670   0.9660   0.9698
-## Prevalence             0.2843   0.1935   0.1744   0.1639   0.1838
-## Detection Rate         0.2557   0.1443   0.1477   0.1355   0.1587
-## Detection Prevalence   0.3051   0.1703   0.1913   0.1656   0.1677
-## Balanced Accuracy      0.9150   0.8567   0.8970   0.8954   0.9262</code></pre>
-
-<p>Display the confusion matrix results for test partition (GBM).</p>
-
-<pre><code>confusionMatrix(test_pred, testTarget)</code></pre>
-
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 1478  152   96  102   23
-##          B   38  840   60   16   64
-##          C   59   86  840   71   43
-##          D   93   35   23  760   39
-##          E    6   26    7   15  913
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.8209          
-##                  95% CI : (0.8109, 0.8306)
-##     No Information Rate : 0.2845          
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
-##                                           
-##                   Kappa : 0.7727          
-##  Mcnemar's Test P-Value : &lt; 2.2e-16       
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.8829   0.7375   0.8187   0.7884   0.8438
-## Specificity            0.9114   0.9625   0.9467   0.9614   0.9888
-## Pos Pred Value         0.7985   0.8251   0.7643   0.8000   0.9442
-## Neg Pred Value         0.9514   0.9386   0.9611   0.9587   0.9656
-## Prevalence             0.2845   0.1935   0.1743   0.1638   0.1839
-## Detection Rate         0.2511   0.1427   0.1427   0.1291   0.1551
-## Detection Prevalence   0.3145   0.1730   0.1867   0.1614   0.1643
-## Balanced Accuracy      0.8972   0.8500   0.8827   0.8749   0.9163</code></pre>
-
-<p>Both Train and Test partitions fitted with GBM algorithm achieved &gt; 80% accuracy! :) That means in-sample error is much lower compared to Multinomial model. Out-of-sample error is also much lower at (1-0.8209)*100 = 17.91%. However, 20 Test Cases predicted with GBM model achieved only 14/20 correct.</p>
-
-<pre><code>predict(gbm_Model, test_data)</code></pre>
-
-<pre><code>##  [1] A A C A A E D D A A A A B A E B A D B B
-## Levels: A B C D E</code></pre>
-
-<p></p>
-</div>
-
-
-
-
-
-
-
-<p>
-</p>
-      </section>
-    </div>
-
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
-      </footer>
-    </div>
-
+<head>
+  <title>A Simple Shiny Prototype</title>
+  <meta charset="utf-8">
+  <meta name="description" content="A Simple Shiny Prototype">
+  <meta name="author" content="hyacinthuslove">
+  <meta name="generator" content="slidify" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta http-equiv="X-UA-Compatible" content="chrome=1">
+  <link rel="stylesheet" href="libraries/frameworks/io2012/css/default.css" media="all" >
+  <link rel="stylesheet" href="libraries/frameworks/io2012/css/phone.css" 
+    media="only screen and (max-device-width: 480px)" >
+  <link rel="stylesheet" href="libraries/frameworks/io2012/css/slidify.css" >
+  <link rel="stylesheet" href="libraries/highlighters/highlight.js/css/tomorrow.css" />
+  <base target="_blank"> <!-- This amazingness opens all links in a new tab. -->  <link rel=stylesheet href="./assets/css/ribbons.css"></link>
+
+  
+  <!-- Grab CDN jQuery, fall back to local if offline -->
+  <script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.7.min.js"></script>
+  <script>window.jQuery || document.write('<script src="libraries/widgets/quiz/js/jquery.js"><\/script>')</script> 
+  <script data-main="libraries/frameworks/io2012/js/slides" 
+    src="libraries/frameworks/io2012/js/require-1.0.8.min.js">
+  </script>
+  
+  
+
+</head>
+<body style="opacity: 0">
+  <slides class="layout-widescreen">
+    
+    <!-- LOGO SLIDE -->
+        <slide class="title-slide segue nobackground">
+  <hgroup class="auto-fadein">
+    <h1>A Simple Shiny Prototype</h1>
+    <h2>A Quick Preview of Datasets</h2>
+    <p>hyacinthuslove<br/></p>
+  </hgroup>
+  <article></article>  
+</slide>
     
 
-  </body>
-</html>
+    <!-- SLIDES -->
+    <slide class="" id="slide-1" style="background:;">
+  <hgroup>
+    <h2>Introducton to a Simply Shiny Prototype</h2>
+  </hgroup>
+  <article data-timings="">
+    <p><strong>Goal: Preview datasets in library(dataset) easily:</strong></p>
+
+<ul>
+<li><p>Select R library dataset easily with English-like phrases</p></li>
+<li><p>Choose how many observations in the selected dataset to view</p></li>
+<li><p>Display description and a quick summary of the selected dataset</p></li>
+<li><p>No need to remember / learn R</p></li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-2" style="background:;">
+  <hgroup>
+    <h2>Clean and Easy to Use Interface</h2>
+  </hgroup>
+  <article data-timings="">
+    <p><img src="image.JPG" width="800"></p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-3" style="background:;">
+  <hgroup>
+    <h2>How does it help non-R users?</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>By typing <em>library(help=datasets)</em> at R command line, you will see a full 
+ list of datasets in the library. However, it&#39;s be inconvenient for non-R users 
+ to install the software, learn R and type the commands to view the datasets in 
+ R. An example is <strong>head(anscombe, 5)</strong>. It&#39;s intimidating, isn&#39;t it?</p>
+
+<pre><code class="r">head(anscombe,5)
+</code></pre>
+
+<pre><code>##   x1 x2 x3 x4   y1   y2    y3   y4
+## 1 10 10 10  8 8.04 9.14  7.46 6.58
+## 2  8  8  8  8 6.95 8.14  6.77 5.76
+## 3 13 13 13  8 7.58 8.74 12.74 7.71
+## 4  9  9  9  8 8.81 8.77  7.11 8.84
+## 5 11 11 11  8 8.33 9.26  7.81 8.47
+</code></pre>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-4" style="background:;">
+  <hgroup>
+    <h2>Future Developments</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>We planned to include these new features: </p>
+
+<ul>
+<li><p>Dynamically list all datasets in dataset library </p></li>
+<li><p>Select columns of each dataset </p></li>
+<li><p>Dynamic selection of variables to check for correlation</p></li>
+</ul>
+
+<p>Any Questions?</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+    <slide class="backdrop"></slide>
+  </slides>
+  <div class="pagination pagination-small" id='io2012-ptoc' style="display:none;">
+    <ul>
+      <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=1 title='Introducton to a Simply Shiny Prototype'>
+         1
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=2 title='Clean and Easy to Use Interface'>
+         2
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=3 title='How does it help non-R users?'>
+         3
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=4 title='Future Developments'>
+         4
+      </a>
+    </li>
+  </ul>
+  </div>  <!--[if IE]>
+    <script 
+      src="http://ajax.googleapis.com/ajax/libs/chrome-frame/1/CFInstall.min.js">  
+    </script>
+    <script>CFInstall.check({mode: 'overlay'});</script>
+  <![endif]-->
+</body>
+  <!-- Load Javascripts for Widgets -->
+  
+  <!-- LOAD HIGHLIGHTER JS FILES -->
+  <script src="libraries/highlighters/highlight.js/highlight.pack.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script>
+  <!-- DONE LOADING HIGHLIGHTER JS FILES -->
+   
+  </html>
